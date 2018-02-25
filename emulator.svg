@@ -1,0 +1,237 @@
+<svg xmlns="http://www.w3.org/2000/svg" baseProfile="full" width="1000" height="360">
+	<g fill="none">
+		<!--
+			Рисуем 30 строк на которых будут отображаться 30 эмуляций роя
+		-->
+		<path d="M0 1h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000H0v2h1000" id="pices" stroke-dasharray="0, 100000000000" stroke="#00f" stroke-width="2"/>
+		
+		<!--
+			Рисуем 99 вертикальных линий которые будут визуально разделять блоки
+		-->
+		<path d="M0 30h1000" stroke-dasharray="0,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9" stroke="#000" stroke-width="60"/>
+		
+		<!--
+			Этот элемент будет показывать статистику по каждому блоку
+		-->
+		<path id="block_graph" stroke="#00f" stroke-width="10"/>
+		
+		<!--
+			Этот элемент будет показывать статистику по данным
+		-->
+		<path id="avaliable_graph" stroke="rgba(0,0,0,.5)" stroke-width="10"/>
+	</g>
+	<!--
+		Рамка вокруг эмуляции роя
+	-->
+	<path id="frame" style="stroke: #000; fill: transparent" d="M0 0h1000v60H0z" stroke-width="2"/>
+	<!--
+		Текстовая информация
+	-->
+	<text id="info" x="0" y="355" fill="black"></text>
+	<script>
+		<![CDATA[
+		
+		var file_size = 1000;
+		var current_sparse = 800;
+		var block_size = 10;
+		var blocks_count = 100;
+		var source_count = 5;
+		
+		document.getElementById("frame").onclick = function ( event )
+		{
+			clear_statistic();
+			fill_values(event.clientX);
+		};
+		
+		document.addEventListener('keydown', function(event) {
+			switch( event.code )
+			{
+				case "KeyP":
+					if ( interval == 0 )
+						interval = setInterval(fill_values, 0);
+					else
+						interval = ( clearInterval(interval), 0 );
+				break;
+				case "Equal":
+					source_count++;
+					clear_statistic();
+				break;
+				case "Minus":
+					source_count--;
+					clear_statistic();
+				break;
+			}
+		});
+		
+		function show_block_map( size, blocks_map, map_size )
+		{
+			var empty = !blocks_map[0];
+			var count = 0;
+			var ranges = [];
+
+			if ( empty )
+				ranges.push(0);
+				
+			for (var i = 0; i <= map_size; i++)
+			{
+				if ( count )
+				{
+					blocks_map_i = !blocks_map[i];
+					if ( i == map_size || empty != blocks_map_i )
+					{
+						ranges.push(count * size / map_size);
+						count = 0;
+						empty = blocks_map_i;
+					}
+				}
+				count++;
+			}
+			
+			if ( ranges.length % 2 == 0 )
+				ranges.push(0);
+			
+			return ranges.join(",");
+		}
+		
+		function make_graph(max, values, offset)
+		{
+			var m = 1;
+			if ( max > 280 )
+				m = 280 / max
+			
+			var d = ""
+			for ( i = 0; i <= 100; i++ )
+			{
+				if ( values[i] > 0 && values[i]*m > 0 )
+					d += "M"+(i*10+offset)+",60v"+Math.round(values[i]*m);
+			}
+			return d;
+		}
+		
+		var statistic_avaliable = [];
+		var statistic_avaliable_max = 0;
+		var statistic_avaliable_max_count = 0;
+		var block_statistic = [];
+		var block_max = 0;
+		var cycle_count = 0;
+		var pices_dasharray = [];
+		var pices_dasharray_index = 0;
+		
+		function clear_statistic()
+		{
+			statistic_avaliable.length = 0;
+			statistic_avaliable_max = 0;
+			statistic_avaliable_max_count = 0;
+			block_statistic.length = 0;
+			pices_dasharray.length = 0;
+			pices_dasharray_index = 0;
+			block_max = 0;		
+			cycle_count = 0;
+			document.getElementById("info").textContent = source_count + " sources";
+		}
+
+		function fill_values(sparse_size)
+		{
+			var avaliable_blocks = [];
+			var avaliable_count = 0;
+			
+			var empty_blocks_count = 0;
+			
+			var x = 0;
+			
+			cycle_count++;
+			
+			if (!sparse_size) 
+				sparse_size = current_sparse;
+			else if ( current_sparse != sparse_size ) 
+				current_sparse = sparse_size;
+			
+			var is_data_position = false;
+
+			var size = sparse_size;
+			
+			if ( sparse_size > ( file_size / 2 ) )
+			{
+				size = file_size - sparse_size;
+				is_data_position = true;
+			}
+
+			for ( var source = 0; source < source_count; source++ )
+			{
+				var position = 0;
+				
+				if( size == 0 )
+					position = 0;
+				else
+					position = Math.round( ( file_size - size ) * Math.random() );
+								
+				
+				for ( var block = 0; block < blocks_count; block++)
+				{
+					var index_position = block * block_size;
+					
+					// check we in data block
+					if ( is_data_position
+						? index_position >= position && index_position + block_size <= position + size
+						: index_position + block_size <= position || index_position >= position + size )
+					{
+						if ( !avaliable_blocks[block] )
+						{
+							avaliable_count++;
+							avaliable_blocks[block] = true;
+						}
+					}
+					else
+						empty_blocks_count++;
+				}
+			}
+			
+			if ( statistic_avaliable[avaliable_count] )
+				statistic_avaliable[avaliable_count]++;
+			else
+				statistic_avaliable[avaliable_count] = 1;
+
+			if ( statistic_avaliable_max < statistic_avaliable[avaliable_count] )
+			{
+				statistic_avaliable_max = statistic_avaliable[avaliable_count];
+				statistic_avaliable_max_count = avaliable_count;
+			}
+			
+			document.getElementById("avaliable_graph").setAttribute( "d", 
+				make_graph( statistic_avaliable_max, statistic_avaliable, -5 ) );
+			
+			for ( i = 0; i < 100; i++ )
+			{
+				if ( avaliable_blocks[i] )
+				{
+					if ( block_statistic[i] )
+						block_statistic[i]++;
+					else
+						block_statistic[i] = 1;
+						
+					if ( block_max < block_statistic[i] )
+						block_max = block_statistic[i];
+				}
+			}
+			
+			document.getElementById("block_graph").setAttribute( "d", make_graph( block_max, block_statistic, +5 ) );
+			
+			pices_dasharray[pices_dasharray_index] = show_block_map( file_size, avaliable_blocks, blocks_count );
+			
+			if ( pices_dasharray_index > 28 )
+				pices_dasharray_index = 0;
+			else
+				pices_dasharray_index += 1;
+			
+			if ( pices_dasharray.length < 30 )
+				pices_dasharray[pices_dasharray_index] = "0 10000000000";
+				
+			document.getElementById("pices").setAttribute("stroke-dasharray", pices_dasharray.join(" 1002 "))
+			
+			document.getElementById("info").textContent = source_count + " sources / " + statistic_avaliable_max_count + "% avaliable / " + cycle_count + " cycle / " + Math.floor( empty_blocks_count / source_count ) + "% empty";
+		}
+		
+		var interval = setInterval(fill_values, 0)
+	]]>
+	</script>
+</svg>
